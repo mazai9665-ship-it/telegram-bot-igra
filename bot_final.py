@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Telegram бот для театральной мастерской "ИГРА" с веб-сервером для Render
+Telegram бот для театральной мастерской "ИГРА" 
+Полная рабочая версия для Render
 """
 
 import os
@@ -25,23 +26,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ================== FLASK СЕРВЕР ==================
+# ================== FLASK СЕРВЕР ДЛЯ RENDER ==================
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "🎭 Театральная мастерская 'ИГРА' - бот работает!"
+    return "Бот театральной мастерской 'ИГРА' работает!"
 
 @app.route('/health')
 def health():
     return "OK", 200
 
-@app.route('/ping')
-def ping():
-    return "pong", 200
-
 def run_flask():
-    """Запуск Flask сервера"""
+    """Запуск веб-сервера для Render"""
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
@@ -86,14 +83,14 @@ def init_db():
     )
     ''')
     
-    # Добавляем филиалы
+    # Добавляем филиалы с emoji
     cursor.execute("SELECT COUNT(*) FROM filials")
     if cursor.fetchone()[0] == 0:
         test_filials = [
-            ("Район Дзержинского", "ул. Дзержинского, д. 249/1", "+7 (967) 655-50-45"),
-            ("ЮМР", "ул. Бульварное кольцо, д. 7/1", "+7 (967) 655-50-45"),
-            ("ФМР", "ул. Ишунина, д. 6", "+7 (967) 655-50-45"),
-            ("Немецкая деревня", "ул. Гете, д. 3", "+7 (967) 655-50-45"),
+            ("🏢 Район Дзержинского", "ул. Дзержинского, д. 249/1", "+7 (967) 655-50-45"),
+            ("🏬 ЮМР", "ул. Бульварное кольцо, д. 7/1", "+7 (967) 655-50-45"),
+            ("🏪 ФМР", "ул. Ишунина, д. 6", "+7 (967) 655-50-45"),
+            ("🏘️ Немецкая деревня", "ул. Гете, д. 3", "+7 (967) 655-50-45"),
         ]
         
         for name, address, phone in test_filials:
@@ -106,21 +103,23 @@ def init_db():
     conn.close()
     logger.info("База данных инициализирована")
 
-# Словарь для состояний
+# Словарь для хранения состояний пользователей
 user_states = {}
 
 # ================== КЛАВИАТУРЫ ==================
 def get_main_keyboard():
+    """Главное меню с emoji"""
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    btn1 = types.KeyboardButton("Записаться на занятие")
-    btn2 = types.KeyboardButton("Наши филиалы")
-    btn3 = types.KeyboardButton("Контакты")
-    btn4 = types.KeyboardButton("О нас")
-    btn5 = types.KeyboardButton("Мои записи")
+    btn1 = types.KeyboardButton("📝 Записаться на занятие")
+    btn2 = types.KeyboardButton("🏢 Наши филиалы")
+    btn3 = types.KeyboardButton("📞 Контакты")
+    btn4 = types.KeyboardButton("ℹ️ О нас")
+    btn5 = types.KeyboardButton("👤 Мои записи")
     markup.add(btn1, btn2, btn3, btn4, btn5)
     return markup
 
 def get_filials_keyboard():
+    """Клавиатура выбора филиала"""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT id, name FROM filials WHERE is_active = 1")
@@ -130,83 +129,160 @@ def get_filials_keyboard():
     markup = types.InlineKeyboardMarkup()
     for filial_id, name in filials:
         markup.add(types.InlineKeyboardButton(name, callback_data=f"filial_{filial_id}"))
-    markup.add(types.InlineKeyboardButton("Отмена", callback_data="cancel"))
+    markup.add(types.InlineKeyboardButton("❌ Отмена", callback_data="cancel"))
     return markup
 
-# ================== КОМАНДЫ ==================
+# ================== КОМАНДЫ И КНОПКИ ==================
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
+    """Команда /start"""
     user_id = message.from_user.id
     first_name = message.from_user.first_name
     
     init_db()
     
-    welcome_text = f"""
-Привет, {first_name}!
+    welcome_text = f"""🎭 Привет, {first_name}!
 
 Добро пожаловать в Театральную Мастерскую "ИГРА"!
 
-Что я умею:
+✨ Что я умею:
 • Записать вас на занятие в удобный филиал
-• Показать контакты всех филиалов
+• Показать контакты всех филиалов  
 • Сохранить ваши данные для связи
 • Уведомить администратора о записи
 
-Выберите действие ниже 👇
-    """
+Выберите действие ниже 👇"""
     
     bot.send_message(
         message.chat.id,
         welcome_text,
-        reply_markup=get_main_keyboard(),
-        parse_mode="Markdown"
+        reply_markup=get_main_keyboard()
     )
 
-@bot.message_handler(func=lambda message: message.text == "Записаться на занятие")
+@bot.message_handler(func=lambda message: message.text == "📝 Записаться на занятие")
 def start_booking(message):
+    """Начало записи"""
     bot.send_message(
         message.chat.id,
-        "Выберите филиал:",
-        reply_markup=get_filials_keyboard(),
-        parse_mode="Markdown"
+        "🏢 Выберите филиал:",
+        reply_markup=get_filials_keyboard()
     )
 
-@bot.message_handler(func=lambda message: message.text == "Наши филиалы")
+@bot.message_handler(func=lambda message: message.text == "🏢 Наши филиалы")
 def show_filials(message):
+    """Показать филиалы"""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT name, address, phone FROM filials WHERE is_active = 1")
     filials = cursor.fetchall()
     conn.close()
     
-    response = "НАШИ ФИЛИАЛЫ:\n\n"
+    response = "🏢 НАШИ ФИЛИАЛЫ:\n\n"
     
     for name, address, phone in filials:
         response += f"{name}\n"
-        response += f"Адрес: {address}\n"
-        response += f"Телефон: {phone}\n"
+        response += f"📍 Адрес: {address}\n"
+        response += f"📞 Телефон: {phone}\n"
         response += "──────────────\n"
     
-    bot.send_message(message.chat.id, response, parse_mode="Markdown")
+    bot.send_message(message.chat.id, response)
 
-@bot.message_handler(func=lambda message: message.text == "Контакты")
+@bot.message_handler(func=lambda message: message.text == "📞 Контакты")
 def show_contacts(message):
-    contacts_text = """
-КОНТАКТЫ ТЕАТРАЛЬНОЙ МАСТЕРСКОЙ "ИГРА":
+    """Показать контакты"""
+    contacts_text = """📞 КОНТАКТЫ ТЕАТРАЛЬНОЙ МАСТЕРСКОЙ "ИГРА"
 
-Телефон: +7 (967) 655-50-45
-Время работы: 16:00-21:00
+📱 Телефон: +7 (967) 655-50-45
+🕐 Время работы: 16:00-21:00
 
-Сайт: https://taplink.cc/te_ma_igra
-Telegram: https://t.me/te_ma_igra_krasnodar
-Instagram: https://www.instagram.com/te_ma_igra
-    """
+🌐 Ссылки:
+• Сайт: https://taplink.cc/te_ma_igra
+• Telegram: https://t.me/te_ma_igra_krasnodar
+• Instagram: https://www.instagram.com/te_ma_igra
+
+📍 Наши филиалы:
+🏢 Район Дзержинского
+🏬 ЮМР  
+🏪 ФМР
+🏘️ Немецкая деревня"""
     
-    bot.send_message(message.chat.id, contacts_text, parse_mode="Markdown")
+    bot.send_message(message.chat.id, contacts_text)
 
-# ================== ОБРАБОТКА ЗАПИСИ ==================
+@bot.message_handler(func=lambda message: message.text == "ℹ️ О нас")
+def show_about(message):
+    """Информация о нас"""
+    about_text = """🎭 ТЕАТРАЛЬНАЯ МАСТЕРСКАЯ "ИГРА"
+
+Мы — театральная мастерская, где каждый может раскрыть свой творческий потенциал!
+
+✨ Почему выбирают нас:
+✅ Профессиональные педагоги с театральным образованием
+✅ 4 удобных филиала в Краснодаре
+✅ Занятия для детей и взрослых
+✅ Индивидуальный подход к каждому ученику
+✅ Постановка спектаклей и участие в фестивалях
+
+🎯 Наши направления:
+• Актерское мастерство
+• Сценическая речь
+• Театральные постановки
+• Ораторское искусство
+• Развитие уверенности в себе
+
+Присоединяйтесь к нам и откройте в себе актёрский талант! ✨"""
+    
+    bot.send_message(message.chat.id, about_text)
+
+@bot.message_handler(func=lambda message: message.text == "👤 Мои записи")
+def show_my_bookings(message):
+    """Показать записи пользователя"""
+    user_id = message.from_user.id
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT id FROM clients WHERE user_id = ?", (user_id,))
+    client = cursor.fetchone()
+    
+    if not client:
+        bot.send_message(message.chat.id, "📭 У вас еще нет записей.")
+        conn.close()
+        return
+    
+    client_id = client[0]
+    
+    cursor.execute('''
+    SELECT b.id, f.name, b.service_type, b.created_at, b.status
+    FROM bookings b
+    JOIN filials f ON b.filial_id = f.id
+    WHERE b.client_id = ?
+    ORDER BY b.created_at DESC
+    ''', (client_id,))
+    
+    bookings = cursor.fetchall()
+    conn.close()
+    
+    if not bookings:
+        bot.send_message(message.chat.id, "📭 У вас нет активных записей.")
+        return
+    
+    response = "📋 ВАШИ ЗАПИСИ:\n\n"
+    
+    for booking_id, filial_name, service, created_at, status in bookings:
+        status_icon = "✅" if status == "confirmed" else "🔄" if status == "new" else "❌"
+        response += f"{status_icon} Запись #{booking_id}\n"
+        response += f"🏢 Филиал: {filial_name}\n"
+        response += f"🎭 Услуга: {service}\n"
+        response += f"📅 Дата: {created_at[:10]}\n"
+        response += f"📊 Статус: {status}\n"
+        response += "──────────────\n"
+    
+    bot.send_message(message.chat.id, response)
+
+# ================== ПРОЦЕСС ЗАПИСИ ==================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('filial_'))
 def process_filial(call):
+    """Обработка выбора филиала"""
     filial_id = int(call.data.split("_")[1])
     
     user_states[call.from_user.id] = {'filial_id': filial_id, 'step': 'waiting_name'}
@@ -220,18 +296,21 @@ def process_filial(call):
     if filial:
         filial_name, address = filial
         bot.edit_message_text(
-            f"Выбран филиал: {filial_name}\nАдрес: {address}\n\nВведите ваше ФИО:",
+            f"✅ Выбран филиал: {filial_name}\n"
+            f"📍 Адрес: {address}\n\n"
+            f"👤 Теперь введите ваше ФИО полностью:\n"
+            f"(Например: Иванов Иван Иванович)",
             call.message.chat.id,
-            call.message.message_id,
-            parse_mode="Markdown"
+            call.message.message_id
         )
 
 @bot.message_handler(func=lambda message: user_states.get(message.from_user.id, {}).get('step') == 'waiting_name')
 def process_name(message):
+    """Обработка ввода имени"""
     full_name = message.text.strip()
     
     if len(full_name) < 5:
-        bot.send_message(message.chat.id, "Введите полное ФИО (минимум 5 символов):")
+        bot.send_message(message.chat.id, "❌ Введите полное ФИО (минимум 5 символов):")
         return
     
     user_states[message.from_user.id]['full_name'] = full_name
@@ -239,16 +318,18 @@ def process_name(message):
     
     bot.send_message(
         message.chat.id,
-        f"ФИО: {full_name}\n\nТеперь введите ваш номер телефона:",
-        parse_mode="Markdown"
+        f"👤 ФИО: {full_name}\n\n"
+        f"📞 Теперь введите ваш номер телефона:\n"
+        f"(Например: +79161234567 или 89161234567)"
     )
 
 @bot.message_handler(func=lambda message: user_states.get(message.from_user.id, {}).get('step') == 'waiting_phone')
 def process_phone(message):
+    """Обработка ввода телефона"""
     phone = message.text.strip()
     
     if not any(char.isdigit() for char in phone) or len(phone) < 10:
-        bot.send_message(message.chat.id, "Неверный формат телефона. Введите еще раз:")
+        bot.send_message(message.chat.id, "❌ Неверный формат телефона. Введите еще раз:")
         return
     
     user_data = user_states[message.from_user.id]
@@ -264,25 +345,22 @@ def process_phone(message):
     filial_name = filial[0] if filial else "Неизвестный филиал"
     filial_address = filial[1] if filial else ""
     
-    # Подтверждение
-    confirmation_text = f"""
-ПОДТВЕРЖДЕНИЕ ЗАПИСИ
+    confirmation_text = f"""✅ ПОДТВЕРЖДЕНИЕ ЗАПИСИ
 
 Филиал: {filial_name}
 Адрес: {filial_address}
 ФИО: {full_name}
 Телефон: {phone}
-Услуга: Запись на занятие
+Услуга: 🎭 Запись на занятие
 
-Всё верно?
-    """
+Всё верно?"""
     
     markup = types.InlineKeyboardMarkup()
     markup.row(
-        types.InlineKeyboardButton("Да, всё верно", callback_data="confirm_yes"),
-        types.InlineKeyboardButton("Исправить", callback_data="confirm_edit")
+        types.InlineKeyboardButton("✅ Да, всё верно", callback_data="confirm_yes"),
+        types.InlineKeyboardButton("✏️ Исправить", callback_data="confirm_edit")
     )
-    markup.row(types.InlineKeyboardButton("Отменить", callback_data="confirm_no"))
+    markup.row(types.InlineKeyboardButton("❌ Отменить", callback_data="confirm_no"))
     
     user_data['phone'] = phone
     user_data['filial_name'] = filial_name
@@ -292,19 +370,18 @@ def process_phone(message):
     bot.send_message(
         message.chat.id,
         confirmation_text,
-        reply_markup=markup,
-        parse_mode="Markdown"
+        reply_markup=markup
     )
 
-# ================== ПОДТВЕРЖДЕНИЕ ==================
 @bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_'))
 def process_confirmation(call):
+    """Обработка подтверждения"""
     action = call.data.split("_")[1]
     user_id = call.from_user.id
     
     if action == "no":
         bot.edit_message_text(
-            "Запись отменена",
+            "❌ Запись отменена",
             call.message.chat.id,
             call.message.message_id
         )
@@ -314,24 +391,21 @@ def process_confirmation(call):
     
     if action == "edit":
         bot.edit_message_text(
-            "Выберите филиал:",
+            "🏢 Выберите филиал:",
             call.message.chat.id,
             call.message.message_id,
-            reply_markup=get_filials_keyboard(),
-            parse_mode="Markdown"
+            reply_markup=get_filials_keyboard()
         )
         if user_id in user_states:
             user_states[user_id]['step'] = 'waiting_name'
         return
     
-    # Подтверждение записи
     user_data = user_states.get(user_id, {})
     
     if not user_data:
-        bot.answer_callback_query(call.id, "Данные устарели", show_alert=True)
+        bot.answer_callback_query(call.id, "❌ Данные устарели", show_alert=True)
         return
     
-    # Сохраняем в БД
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
@@ -348,7 +422,7 @@ def process_confirmation(call):
     ''', (
         client_id,
         user_data['filial_id'],
-        "Запись на занятие",
+        "🎭 Запись на занятие",
         "Нет комментариев",
         'new'
     ))
@@ -357,98 +431,88 @@ def process_confirmation(call):
     conn.commit()
     conn.close()
     
-    # Удаляем состояние
     if user_id in user_states:
         del user_states[user_id]
     
-    # Сообщение клиенту
-    success_text = f"""
-ЗАПИСЬ УСПЕШНО СОЗДАНА!
+    success_text = f"""🎉 ЗАПИСЬ УСПЕШНО СОЗДАНА!
 
 Ваша запись #{booking_id} в Театральную Мастерскую "ИГРА" принята!
 
-Детали записи:
-Филиал: {user_data['filial_name']}
-Адрес: {user_data['filial_address']}
-ФИО: {user_data['full_name']}
-Телефон: {user_data['phone']}
-Услуга: Запись на занятие
+📋 Детали записи:
+🏢 Филиал: {user_data['filial_name']}
+📍 Адрес: {user_data['filial_address']}
+👤 ФИО: {user_data['full_name']}
+📞 Телефон: {user_data['phone']}
+🎭 Услуга: Запись на занятие
 
 Мы свяжемся с вами в ближайшее время!
 
-Контакт для связи: +7 (967) 655-50-45
-    """
+📞 Контакт для связи: +7 (967) 655-50-45"""
     
     bot.edit_message_text(
         success_text,
         call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown"
+        call.message.message_id
     )
     
-    # Уведомление администратору
     try:
-        admin_message = f"""
-НОВАЯ ЗАПИСЬ В ТЕАТРАЛЬНУЮ МАСТЕРСКУЮ "ИГРА"!
+        admin_message = f"""🎭 НОВАЯ ЗАПИСЬ В ТЕАТРАЛЬНУЮ МАСТЕРСКУЮ "ИГРА"!
 
-Детали записи:
+📋 Детали записи:
 ID: #{booking_id}
 Филиал: {user_data['filial_name']}
 Адрес: {user_data['filial_address']}
 
-Данные клиента:
+👤 Данные клиента:
 ФИО: {user_data['full_name']}
 Телефон: {user_data['phone']}
 Telegram ID: {user_id}
 
-Услуга: Запись на занятие
+🎭 Услуга: Запись на занятие
 
-Время записи: {datetime.now().strftime('%H:%M %d.%m.%Y')}
+⏰ Время записи: {datetime.now().strftime('%H:%M %d.%m.%Y')}
 
-Контактный телефон: +7 (967) 655-50-45
-        """
+📞 Контактный телефон: +7 (967) 655-50-45"""
         
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton(
-            text="Подробнее", 
+            text="📋 Подробнее", 
             callback_data=f"admin_details_{booking_id}"
         ))
         markup.add(types.InlineKeyboardButton(
-            text="Написать клиенту", 
+            text="💬 Написать клиенту", 
             url=f"tg://user?id={user_id}"
         ))
         
         bot.send_message(
             ADMIN_ID,
             admin_message,
-            reply_markup=markup,
-            parse_mode="Markdown"
+            reply_markup=markup
         )
         
-        logger.info(f"Уведомление отправлено администратору {ADMIN_ID}")
-        print(f"УВЕДОМЛЕНИЕ ОТПРАВЛЕНО НА ID: {ADMIN_ID}")
+        logger.info(f"✅ Уведомление отправлено администратору {ADMIN_ID}")
         
     except Exception as e:
-        logger.error(f"Ошибка отправки уведомления: {e}")
-        print(f"ОШИБКА ОТПРАВКИ: {e}")
+        logger.error(f"❌ Ошибка отправки уведомления: {e}")
 
 @bot.callback_query_handler(func=lambda call: call.data == 'cancel')
 def cancel_booking(call):
+    """Отмена записи"""
     user_id = call.from_user.id
     if user_id in user_states:
         del user_states[user_id]
     
     bot.edit_message_text(
-        "Запись отменена",
+        "❌ Запись отменена",
         call.message.chat.id,
         call.message.message_id
     )
 
-# ================== ЗАПУСК БОТА ==================
+# ================== ЗАПУСК ==================
 def run_bot():
     """Запуск Telegram бота"""
     print("🤖 Запускаю Telegram бота...")
-    bot.polling(none_stop=True, interval=0, timeout=20)
+    bot.polling(none_stop=True, interval=0, timeout=30)
 
 if __name__ == "__main__":
     init_db()
@@ -459,12 +523,10 @@ if __name__ == "__main__":
     print(f"Токен: {'Установлен' if BOT_TOKEN else 'Нет!'}")
     print(f"Админ ID: {ADMIN_ID}")
     print("=" * 50)
-    print("🌐 Запускаю веб-сервер и Telegram бота...")
+    print("🌐 Запускаю веб-сервер и бота...")
     print("=" * 50)
     
-    # Запускаем Flask сервер в отдельном потоке
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     
-    # Запускаем бота в основном потоке
     run_bot()
