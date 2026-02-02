@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Telegram бот для театральной мастерской "ИГРА"
-Используем pyTelegramBotAPI
+Telegram бот для театральной мастерской "ИГРА" с веб-сервером для Render
 """
 
 import os
@@ -10,6 +9,8 @@ import logging
 from datetime import datetime
 import telebot
 from telebot import types
+from flask import Flask
+import threading
 
 # ================== НАСТРОЙКИ ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8547352136:AAE1_t3mZcI8kmLXenqAu4WyTgSNRAvQcQs")
@@ -23,6 +24,26 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ================== FLASK СЕРВЕР ==================
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🎭 Театральная мастерская 'ИГРА' - бот работает!"
+
+@app.route('/health')
+def health():
+    return "OK", 200
+
+@app.route('/ping')
+def ping():
+    return "pong", 200
+
+def run_flask():
+    """Запуск Flask сервера"""
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 # ================== БАЗА ДАННЫХ ==================
 def init_db():
@@ -424,6 +445,11 @@ def cancel_booking(call):
     )
 
 # ================== ЗАПУСК БОТА ==================
+def run_bot():
+    """Запуск Telegram бота"""
+    print("🤖 Запускаю Telegram бота...")
+    bot.polling(none_stop=True, interval=0, timeout=20)
+
 if __name__ == "__main__":
     init_db()
     
@@ -433,8 +459,12 @@ if __name__ == "__main__":
     print(f"Токен: {'Установлен' if BOT_TOKEN else 'Нет!'}")
     print(f"Админ ID: {ADMIN_ID}")
     print("=" * 50)
-    print("Запущен в облаке Render.com!")
+    print("🌐 Запускаю веб-сервер и Telegram бота...")
     print("=" * 50)
     
-    # Запускаем бота
-    bot.polling(none_stop=True, interval=0)
+    # Запускаем Flask сервер в отдельном потоке
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    
+    # Запускаем бота в основном потоке
+    run_bot()
