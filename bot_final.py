@@ -235,36 +235,47 @@ def show_about(message):
 
 @bot.message_handler(func=lambda message: message.text == "👤 Мои записи")
 def show_my_bookings(message):
-    """Показать записи пользователя"""
+    """Показать записи пользователя - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
     user_id = message.from_user.id
+    
+    # Отладка
+    print(f"🔍 Кнопка 'Мои записи' нажата пользователем {user_id}")
     
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    cursor.execute("SELECT id FROM clients WHERE user_id = ?", (user_id,))
+    # Ищем клиента в базе
+    cursor.execute("SELECT id, full_name, phone FROM clients WHERE user_id = ?", (user_id,))
     client = cursor.fetchone()
     
     if not client:
-        bot.send_message(message.chat.id, "📭 У вас еще нет записей.")
+        print(f"📭 Пользователь {user_id} не найден в базе клиентов")
+        bot.send_message(message.chat.id, "📭 У вас еще нет записей. Запишитесь на первое занятие!")
         conn.close()
         return
     
-    client_id = client[0]
+    client_id, client_name, client_phone = client
+    print(f"👤 Найден клиент: {client_name}, ID в базе: {client_id}")
     
+    # Ищем записи клиента
     cursor.execute('''
     SELECT b.id, f.name, b.service_type, b.created_at, b.status
     FROM bookings b
     JOIN filials f ON b.filial_id = f.id
     WHERE b.client_id = ?
     ORDER BY b.created_at DESC
+    LIMIT 10
     ''', (client_id,))
     
     bookings = cursor.fetchall()
     conn.close()
     
     if not bookings:
+        print(f"📭 У клиента {client_id} нет записей")
         bot.send_message(message.chat.id, "📭 У вас нет активных записей.")
         return
+    
+    print(f"📋 Найдено {len(bookings)} записей для клиента {client_id}")
     
     response = "📋 ВАШИ ЗАПИСИ:\n\n"
     
@@ -490,10 +501,10 @@ Telegram ID: {user_id}
             reply_markup=markup
         )
         
-        logger.info(f"✅ Уведомление отправлено администратору {ADMIN_ID}")
+        print(f"✅ Уведомление отправлено администратору {ADMIN_ID}")
         
     except Exception as e:
-        logger.error(f"❌ Ошибка отправки уведомления: {e}")
+        print(f"❌ Ошибка отправки уведомления: {e}")
 
 @bot.callback_query_handler(func=lambda call: call.data == 'cancel')
 def cancel_booking(call):
