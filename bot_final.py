@@ -512,7 +512,59 @@ Telegram ID: `{user_id}`
 
 📞 *Контактный телефон:*
 +7 (967) 655-50-45
+            # Уведомление администратору
+    try:
+        admin_message = f"""
+🎭 *НОВАЯ ЗАПИСЬ В ТЕАТРАЛЬНУЮ МАСТЕРСКУЮ "ИГРА"!* 🎭
+
+📋 *Детали записи:*
+ID: #{booking_id}
+Филиал: {user_data['filial_name']}
+Адрес: {user_data['filial_address']}
+
+👤 *Данные клиента:*
+ФИО: *{user_data['full_name']}*
+Телефон: `{user_data['phone']}` 📞
+Telegram ID: `{user_id}`
+
+🎭 *Услуга:*
+Запись на занятие
+
+⏰ *Время записи:*
+{datetime.now().strftime('%H:%M %d.%m.%Y')}
+
+➖➖➖➖➖➖➖➖➖➖
+📞 *Телефон студии:* +7 (967) 655-50-45
         """
+        
+        # Только рабочие кнопки
+        markup = types.InlineKeyboardMarkup()
+        markup.row(
+            types.InlineKeyboardButton("📋 Подробнее", callback_data=f"admin_details_{booking_id}"),
+            types.InlineKeyboardButton("💬 Написать", url=f"tg://user?id={user_id}")
+        )
+        
+        bot.send_message(
+            ADMIN_ID,
+            admin_message,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+        
+        logger.info(f"✅ Уведомление отправлено администратору {ADMIN_ID}")
+        print(f"✅ УВЕДОМЛЕНИЕ ОТПРАВЛЕНО НА ID: {ADMIN_ID}")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка отправки уведомления: {e}")
+        print(f"❌ ОШИБКА ОТПРАВКИ: {e}")
+        
+        # Пробуем отправить без кнопок
+        try:
+            simple_msg = f"🎭 Новая запись #{booking_id}\n👤 {user_data['full_name']}\n📞 {user_data['phone']}"
+            bot.send_message(ADMIN_ID, simple_msg)
+            print("✅ Простое уведомление отправлено")
+        except:
+            print("❌ Не удалось отправить даже простое сообщение")
         
         # Кнопки для администратора
         markup = types.InlineKeyboardMarkup()
